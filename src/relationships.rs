@@ -1,14 +1,14 @@
-use std::collections::VecDeque;
-use csv_reader_and_graph::TrustGraph;
+use crate::csv::TrustGraph;
+use std::collections::{HashSet, HashMap};
 
 pub trait MutualConnectionAnalysis {
     fn analyze_mutual_connections(&self) -> Vec<(u32, u32, u32)>;
+    fn find_mutual_trust_score(&self) -> HashMap<(u32, u32), f64>;
 }
 
 impl MutualConnectionAnalysis for TrustGraph {
     fn analyze_mutual_connections(&self) -> Vec<(u32, u32, u32)> {
         let mut mutual_results = Vec::new();
-
         for node_index in self.graph.node_indices() {
             let neighbors: HashSet<_> = self.graph.neighbors(node_index).collect();
             for &neighbor1 in &neighbors {
@@ -35,4 +35,34 @@ impl MutualConnectionAnalysis for TrustGraph {
 
         mutual_results
     }
+
+    fn find_mutual_trust_score(&self) -> HashMap<(u32, u32), f64> {
+        let mut mutual_trust_scores = HashMap::new();
+    
+        for node_index in self.graph.node_indices() {
+            // Find all neighbors of this node
+            let neighbors: HashSet<_> = self.graph.neighbors(node_index).collect();
+    
+            // For each pair of neighbors, calculate their mutual trust score
+            for &neighbor1 in &neighbors {
+                for &neighbor2 in &neighbors {
+                    if neighbor1 != neighbor2 {
+                        // Average trust score of neighbor pairs
+                        let trust1 = self.graph.find_edge(node_index, neighbor1)
+                            .and_then(|edge| Some(*self.graph.edge_weight(edge)? as f64));
+                        let trust2 = self.graph.find_edge(node_index, neighbor2)
+                            .and_then(|edge| Some(*self.graph.edge_weight(edge)? as f64));
+    
+                        if let (Some(trust1), Some(trust2)) = (trust1, trust2) {
+                            let average_trust = (trust1 + trust2) / 2.0;
+                            mutual_trust_scores.insert((self.graph[neighbor1], self.graph[neighbor2]), average_trust);
+                        }
+                    }
+                }
+            }
+        }
+    
+        mutual_trust_scores
+    }
+
 }
