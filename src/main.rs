@@ -1,5 +1,6 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Result};
+use std::collections::{HashMap, HashSet};
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use petgraph::adj::IndexType;
@@ -13,6 +14,7 @@ pub struct TrustRelation {
     trust_score: i32,
 }
 
+#[derive(Debug, Clone)]
 pub struct TrustGraph {
     graph: DiGraph<u32, i32>,
     node_indices: HashMap<u32, NodeIndex>,
@@ -25,13 +27,18 @@ impl TrustGraph {
             node_indices: HashMap::new(),
         }
     }
-
+    // Add a single trust relation to the graph
     pub fn add_relation(&mut self, relation: TrustRelation) {
         let from_index = *self.node_indices.entry(relation.rater).or_insert_with(|| self.graph.add_node(relation.rater));
         let to_index = *self.node_indices.entry(relation.ratee).or_insert_with(|| self.graph.add_node(relation.ratee));
         self.graph.add_edge(from_index, to_index, relation.trust_score);
     }
-
+     // Add a list of relations to the graph
+     fn add_relations(&mut self, relations: Vec<TrustRelation>) {
+        for relation in relations {
+            self.add_relation(relation);
+        }
+    }
     pub fn build_adjacency_matrix(&self) -> DMatrix<f64> {
         let num_nodes = self.graph.node_count();
         let mut matrix = DMatrix::zeros(num_nodes, num_nodes);
@@ -103,23 +110,47 @@ impl TrustGraph {
     }
 }
 
-fn load_csv_to_graph(filepath: &str) -> TrustGraph {
-    let mut rdr = csv::Reader::from_path(filepath).expect("Cannot read CSV file");
-    let mut graph = TrustGraph::new();
+pub fn read_csv(filepath: &str) -> Result<Vec<TrustRelation>> {
+    let file = File::open(filepath)?;
+    let reader = BufReader::new(file);
+    let mut relations = Vec::new();
 
-    for result in rdr.deserialize() {
-        let relation: TrustRelation = result.expect("Invalid CSV row");
-        graph.add_relation(relation);
-    }
+    // Iterate through each line of the CSV file
+    for (index, line) in reader.lines().enumerate() {
+        let line = line?;
+        // Skip the header row
+        if index == 0 {
+            continue;
+        }
 
-    graph
+        // Split the line by commas and parse the values
+        let parts: Vec<&str> = line.split(',').collect();
+        if parts.len() == 3 {
+            let rater = parts[0].parse().unwrap_or(0);
+            let ratee = parts[1].parse().unwrap_or(0);
+            let trust_score = parts[2].parse().unwrap_or(0);
+
+            // Add each parsed relation to the graph
+            relations.push(TrustRelation {
+                rater,
+                ratee,
+                trust_score,
+            });
+        }
+    } 
+    Ok(relations) 
 }
 
-fn main() {
-    let trust_graph = load_csv_to_graph(r"C:\Users\nicho\projects\ds210final\DS210-Final-Project\BTCAlphaNet.csv");
-    let centrality = trust_graph.compute_eigenvector_centrality(100, 1e-6);
-    let _mutual_results = trust_graph.analyze_mutual_connections();
+fn main()->Result<()> {
+    let relations = read_csv(r"C:\Users\nicho\projects\ds210final\DS210-Final-Project\BTCAlphaNet.csv");
+    // Create and populate the TrustGraph
+    let mut graph = TrustGraph::new();
+    graph.add_relations(relations.expect("REASON"));
+    let centrality = graph.compute_eigenvector_centrality(100, 1e-6);
+    let _mutual_results = graph.analyze_mutual_connections();
     for (user, score) in centrality {
         println!("User {}: Centrality Score = {}", user, score);
     }
+    println!("{:?}", graph);
+    Ok(())
 }
