@@ -31,7 +31,7 @@ impl TrustGraph {
         self.graph.add_edge(from_index, to_index, relation.trust_score);
     }
 
-    // Dummy implementation for demonstration
+    // Dummy implementation
     fn compute_eigenvector_centrality(&self) -> HashMap<u32, f64> {
         let mut centrality = HashMap::new();
         for &node in self.node_indices.keys() {
@@ -41,7 +41,7 @@ impl TrustGraph {
     }
 
     fn compute_trust_score_between(&self, a: u32, b: u32) -> Option<f64> {
-        // Dummy implementation just to illustrate
+        // Dummy implementation
         if a != b {
             Some(5.0) // Return a fixed score
         } else {
