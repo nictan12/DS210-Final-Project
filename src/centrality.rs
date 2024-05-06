@@ -1,6 +1,7 @@
+use crate::csv::TrustGraph;
 use std::collections::HashMap;
-use nalgebra::{DMatrix, DVector};
-use csv_reader_and_graph::TrustGraph;
+use nalgebra::DVector;
+use petgraph::adj::IndexType;
 
 pub trait EigenvectorCentrality {
     fn compute_eigenvector_centrality(&self, max_iter: usize, tolerance: f64) -> HashMap<u32, f64>;
@@ -16,9 +17,8 @@ impl EigenvectorCentrality for TrustGraph {
             let next_vector = &adjacency_matrix * &eigenvector;
             let norm = next_vector.norm();
             let normalized_vector = next_vector / norm;
-
             // Check convergence
-            if (normalized_vector - eigenvector).norm() < tolerance {
+            if (normalized_vector.clone() - eigenvector.clone()).norm() < tolerance {
                 break;
             }
 
