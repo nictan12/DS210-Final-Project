@@ -2,6 +2,9 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Result};
 use std::collections::HashMap;
 use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::visit::EdgeRef;
+use serde::Deserialize;
+use nalgebra::DMatrix;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct TrustRelation {
@@ -37,6 +40,16 @@ impl TrustGraph {
             self.add_relation(relation);
         }
     }
+    pub fn build_adjacency_matrix(&self) -> DMatrix<f64> {
+        let num_nodes = self.graph.node_count();
+        let mut matrix = DMatrix::zeros(num_nodes, num_nodes);
+        for edge in self.graph.edge_references() {
+            let source_index = edge.source().index();
+            let target_index = edge.target().index();
+            matrix[(source_index, target_index)] = *edge.weight() as f64;
+        }
+        matrix
+    }
 }
 
 pub fn read_csv(filepath: &str) -> Result<Vec<TrustRelation>> {
@@ -46,7 +59,7 @@ pub fn read_csv(filepath: &str) -> Result<Vec<TrustRelation>> {
 
     for (index, line) in reader.lines().enumerate() {
         let line = line?;
-        if index == 0 {
+        if index == 0 { // to skip the header row
             continue;
         }
 
